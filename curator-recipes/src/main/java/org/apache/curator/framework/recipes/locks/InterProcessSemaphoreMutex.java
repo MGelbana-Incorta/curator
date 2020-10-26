@@ -18,10 +18,13 @@
  */
 package org.apache.curator.framework.recipes.locks;
 
-import com.google.common.base.Preconditions;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.WatcherRemoveCuratorFramework;
-import java.util.concurrent.TimeUnit;
+
+import com.google.common.base.Preconditions;
 
 /**
  * A NON re-entrant mutex that works across JVMs. Uses Zookeeper to hold the lock. All processes in all JVMs that
@@ -44,13 +47,23 @@ public class InterProcessSemaphoreMutex implements InterProcessLock
     }
 
     @Override
-    public void acquire() throws Exception
+    public void acquire(Consumer<String> requestedLockConfirmation) throws Exception
     {
         lease = semaphore.acquire();
     }
-
+	
+		@Override
+		public void acquire() throws Exception {
+			acquire(new Consumer<String>() {
+	
+				@Override
+				public void accept(String s) {
+				}
+			});
+		}
+    
     @Override
-    public boolean acquire(long time, TimeUnit unit) throws Exception
+    public boolean acquire(long time, TimeUnit unit, Consumer<String> requestedLockConfirmation) throws Exception
     {
         Lease acquiredLease = semaphore.acquire(time, unit);
         if ( acquiredLease == null )
@@ -61,6 +74,16 @@ public class InterProcessSemaphoreMutex implements InterProcessLock
         return true;
     }
 
+	@Override
+	public boolean acquire(long time, TimeUnit unit) throws Exception {
+		return acquire(time, unit, new Consumer<String>() {
+
+			@Override
+			public void accept(String s) {
+			}
+		});
+	}
+    
     @Override
     public void release() throws Exception
     {

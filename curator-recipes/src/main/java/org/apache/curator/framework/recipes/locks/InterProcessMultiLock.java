@@ -23,7 +23,9 @@ import com.google.common.collect.Lists;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.utils.ThreadUtils;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static com.google.common.collect.Lists.reverse;
 
@@ -73,27 +75,68 @@ public class InterProcessMultiLock implements InterProcessLock
      * {@inheritDoc}
      */
     @Override
-    public void acquire() throws Exception
+    public void acquire(Consumer<String> lockRequestConfirmation) throws Exception
     {
-        acquire(-1, null);
+        acquire(-1, null, lockRequestConfirmation);
+    }
+    
+    @Override
+    public void acquire() throws Exception {
+    	acquire( new Consumer<String>() {
+			
+			@Override
+			public void accept(String t) {
+			}
+		});
     }
 
+	@Override
+	public boolean acquire(long time, TimeUnit unit) throws Exception {
+		return acquire(time, unit, new Consumer<String>() {
+
+			@Override
+			public void accept(String s) {
+			}
+		});
+	}
     /**
      * {@inheritDoc}
      */
     @Override
-    public boolean acquire(long time, TimeUnit unit) throws Exception
+    public boolean acquire(long time, TimeUnit unit, final Consumer<String> lockRequestConfirmation) throws Exception
     {
         Exception                   exception = null;
         List<InterProcessLock>      acquired = Lists.newArrayList();
         boolean                     success = true;
+
+		final CountDownLatch requestedLocksLatch = new CountDownLatch(locks.size());
+		Thread requestedLocksLatchThread = new Thread(new Runnable() {
+
+			@Override
+			public void run() {
+				try {
+					requestedLocksLatch.await();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				lockRequestConfirmation.accept("");
+			}
+		}, "Curator-Incorta-RequestedLocksLatchThread");
+		requestedLocksLatchThread.start();
+
         for ( InterProcessLock lock : locks )
         {
             try
             {
                 if ( unit == null )
                 {
-                    lock.acquire();
+					lock.acquire(new Consumer<String>() {
+						
+						@Override
+						public void accept(String t) {
+							requestedLocksLatch.countDown();
+						}
+					});
                     acquired.add(lock);
                 }
                 else

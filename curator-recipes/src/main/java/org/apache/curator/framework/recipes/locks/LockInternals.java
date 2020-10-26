@@ -40,6 +40,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 public class LockInternals
 {
@@ -206,7 +207,7 @@ public class LockInternals
         return driver;
     }
 
-    String attemptLock(long time, TimeUnit unit, byte[] lockNodeBytes) throws Exception
+    String attemptLock(long time, TimeUnit unit, byte[] lockNodeBytes, Consumer<String> requestedLockConfirmation) throws Exception
     {
         final long      startMillis = System.currentTimeMillis();
         final Long      millisToWait = (unit != null) ? unit.toMillis(time) : null;
@@ -223,6 +224,7 @@ public class LockInternals
             try
             {
                 ourPath = driver.createsTheLock(client, path, localLockNodeBytes);
+                requestedLockConfirmation.accept(ourPath);
                 hasTheLock = internalLockLoop(startMillis, millisToWait, ourPath);
             }
             catch ( KeeperException.NoNodeException e )

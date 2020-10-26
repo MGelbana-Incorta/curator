@@ -28,6 +28,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+
 import org.apache.curator.utils.PathUtils;
 
 /**
@@ -84,14 +86,24 @@ public class InterProcessMutex implements InterProcessLock, Revocable<InterProce
      * @throws Exception ZK errors, connection interruptions
      */
     @Override
-    public void acquire() throws Exception
+	public void acquire(Consumer<String> requestedLockConfirmation) throws Exception
     {
-        if ( !internalLock(-1, null) )
+        if ( !internalLock(-1, null, requestedLockConfirmation) )
         {
             throw new IOException("Lost connection while trying to acquire lock: " + basePath);
         }
     }
 
+    @Override
+    public void acquire() throws Exception {
+    	acquire( new Consumer<String>() {
+			
+			@Override
+			public void accept(String t) {
+			}
+		});
+    }
+    
     /**
      * Acquire the mutex - blocks until it's available or the given time expires. Note: the same thread
      * can call acquire re-entrantly. Each call to acquire that returns true must be balanced by a call
@@ -103,10 +115,21 @@ public class InterProcessMutex implements InterProcessLock, Revocable<InterProce
      * @throws Exception ZK errors, connection interruptions
      */
     @Override
-    public boolean acquire(long time, TimeUnit unit) throws Exception
+    public boolean acquire(long time, TimeUnit unit, Consumer<String> requestedLockConfirmation) throws Exception
     {
-        return internalLock(time, unit);
+        return internalLock(time, unit, requestedLockConfirmation);
     }
+
+	@Override
+	public boolean acquire(long time, TimeUnit unit) throws Exception {
+		return acquire(time, unit, new Consumer<String>() {
+
+			@Override
+			public void accept(String t) {
+			}
+
+		});
+	}
 
     /**
      * Returns true if the mutex is acquired by a thread in this JVM
@@ -217,7 +240,7 @@ public class InterProcessMutex implements InterProcessLock, Revocable<InterProce
         return lockData != null ? lockData.lockPath : null;
     }
 
-    private boolean internalLock(long time, TimeUnit unit) throws Exception
+    private boolean internalLock(long time, TimeUnit unit, Consumer<String> requestedLockConfirmation) throws Exception
     {
         /*
            Note on concurrency: a given lockData instance
@@ -234,7 +257,7 @@ public class InterProcessMutex implements InterProcessLock, Revocable<InterProce
             return true;
         }
 
-        String lockPath = internals.attemptLock(time, unit, getLockNodeBytes());
+        String lockPath = internals.attemptLock(time, unit, getLockNodeBytes(), requestedLockConfirmation);
         if ( lockPath != null )
         {
             LockData newLockData = new LockData(currentThread, lockPath);

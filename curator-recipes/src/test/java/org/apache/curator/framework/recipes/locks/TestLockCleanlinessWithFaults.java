@@ -18,16 +18,17 @@
  */
 package org.apache.curator.framework.recipes.locks;
 
+import java.util.List;
+import java.util.function.Consumer;
+
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.imps.TestCleanState;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.curator.test.BaseClassForTests;
-import org.apache.curator.utils.CloseableUtils;
 import org.apache.zookeeper.KeeperException;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-import java.util.List;
 
 public class TestLockCleanlinessWithFaults extends BaseClassForTests
 {
@@ -55,7 +56,12 @@ public class TestLockCleanlinessWithFaults extends BaseClassForTests
             };
             try
             {
-                internals.attemptLock(0, null, null);
+                internals.attemptLock(0, null, null,  new Consumer<String>() {
+        			
+        			@Override
+        			public void accept(String s) {
+        			}
+        		});
                 Assert.fail();
             }
             catch ( KeeperException.NoNodeException dummy )

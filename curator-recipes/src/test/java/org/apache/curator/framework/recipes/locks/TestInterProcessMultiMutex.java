@@ -18,16 +18,18 @@
  */
 package org.apache.curator.framework.recipes.locks;
 
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
+
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.imps.TestCleanState;
 import org.apache.curator.retry.RetryOneTime;
 import org.testng.Assert;
 import org.testng.annotations.Test;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TestInterProcessMultiMutex extends TestInterProcessMutexBase
 {
@@ -52,17 +54,37 @@ public class TestInterProcessMultiMutex extends TestInterProcessMutexBase
             InterProcessLock        badLock = new InterProcessLock()
             {
                 @Override
-                public void acquire() throws Exception
+                public void acquire(Consumer<String> requestedLockConfirmation) throws Exception
                 {
-                    otherGoodLock.acquire();
+                    otherGoodLock.acquire(requestedLockConfirmation);
+                }
+
+				@Override
+				public void acquire() throws Exception {
+					acquire(new Consumer<String>() {
+
+						@Override
+						public void accept(String s) {
+						}
+					});
+                }
+				
+                @Override
+                public boolean acquire(long time, TimeUnit unit, Consumer<String> requestedLockConfirmation) throws Exception
+                {
+                    return otherGoodLock.acquire(time, unit, requestedLockConfirmation);
                 }
 
                 @Override
-                public boolean acquire(long time, TimeUnit unit) throws Exception
-                {
-                    return otherGoodLock.acquire(time, unit);
-                }
+				public boolean acquire(long time, TimeUnit unit) throws Exception {
+					return acquire(time, unit, new Consumer<String>() {
 
+						@Override
+						public void accept(String s) {
+						}
+					});
+                }
+                
                 @Override
                 public void release() throws Exception
                 {
@@ -108,20 +130,40 @@ public class TestInterProcessMultiMutex extends TestInterProcessMutexBase
             InterProcessLock        badLock = new InterProcessLock()
             {
                 @Override
-                public void acquire() throws Exception
+                public void acquire(Consumer<String> requestedLockConfirmation) throws Exception
                 {
                     if ( goodLock.isAcquiredInThisProcess() )
                     {
                         goodLockWasLocked.set(true);
                     }
                     throw new Exception("foo");
-                }
+				}
 
+				@Override
+				public void acquire() throws Exception {
+					acquire(new Consumer<String>() {
+
+						@Override
+						public void accept(String s) {
+						}
+					});
+				}
+				
                 @Override
-                public boolean acquire(long time, TimeUnit unit) throws Exception
+                public boolean acquire(long time, TimeUnit unit, Consumer<String> requestedLockConfirmation) throws Exception
                 {
                     throw new Exception("foo");
                 }
+
+				@Override
+				public boolean acquire(long time, TimeUnit unit) throws Exception {
+					return acquire(time, unit, new Consumer<String>() {
+
+						@Override
+						public void accept(String s) {
+						}
+					});
+				}
 
                 @Override
                 public void release() throws Exception

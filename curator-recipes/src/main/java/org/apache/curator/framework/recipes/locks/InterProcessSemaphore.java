@@ -18,21 +18,24 @@
  */
 package org.apache.curator.framework.recipes.locks;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import org.apache.curator.utils.CloseableUtils;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.shared.SharedCountListener;
 import org.apache.curator.framework.recipes.shared.SharedCountReader;
 import org.apache.curator.framework.state.ConnectionState;
+import org.apache.curator.utils.CloseableUtils;
 import org.apache.curator.utils.ThreadUtils;
 import org.apache.curator.utils.ZKPaths;
 import org.apache.zookeeper.KeeperException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.io.IOException;
-import java.util.Collection;
-import java.util.concurrent.TimeUnit;
+
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 
 /**
  * <p>
@@ -154,7 +157,12 @@ public class InterProcessSemaphore
      */
     public Lease acquire() throws Exception
     {
-        String      path = internals.attemptLock(-1, null, null);
+        String      path = internals.attemptLock(-1, null, null, new Consumer<String>() {
+			
+			@Override
+			public void accept(String t) {
+			}
+		});
         return makeLease(path);
     }
 
@@ -179,7 +187,12 @@ public class InterProcessSemaphore
         {
             while ( qty-- > 0 )
             {
-                String      path = internals.attemptLock(-1, null, null);
+                String      path = internals.attemptLock(-1, null, null,  new Consumer<String>() {
+        			
+        			@Override
+        			public void accept(String s) {
+        			}
+        		});
                 builder.add(makeLease(path));
             }
         }
@@ -207,7 +220,12 @@ public class InterProcessSemaphore
      */
     public Lease acquire(long time, TimeUnit unit) throws Exception
     {
-        String      path = internals.attemptLock(time, unit, null);
+        String      path = internals.attemptLock(time, unit, null,  new Consumer<String>() {
+			
+			@Override
+			public void accept(String s) {
+			}
+		});
         return (path != null) ? makeLease(path) : null;
     }
 
@@ -242,7 +260,12 @@ public class InterProcessSemaphore
                 long        elapsedMs = System.currentTimeMillis() - startMs;
                 long        thisWaitMs = waitMs - elapsedMs;
 
-                String      path = (thisWaitMs > 0) ? internals.attemptLock(thisWaitMs, TimeUnit.MILLISECONDS, null) : null;
+                String      path = (thisWaitMs > 0) ? internals.attemptLock(thisWaitMs, TimeUnit.MILLISECONDS, null,  new Consumer<String>() {
+        			
+        			@Override
+        			public void accept(String s) {
+        			}
+        		}) : null;
                 if ( path == null )
                 {
                     returnAll(builder.build());

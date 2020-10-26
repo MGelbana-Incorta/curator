@@ -19,6 +19,7 @@
 package org.apache.curator.framework.recipes.locks;
 
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 public interface InterProcessLock
 {
@@ -28,7 +29,26 @@ public interface InterProcessLock
      *
      * @throws Exception ZK errors, connection interruptions
      */
-    public void acquire() throws Exception;
+	public void acquire() throws Exception;
+
+    /**
+     * Acquire the mutex - blocking until it's available. Each call to acquire must be balanced by a call
+     * to {@link #release()}
+     *
+     * @throws Exception ZK errors, connection interruptions
+     */
+    public void acquire(Consumer<String> lockRequestConfirmation) throws Exception;
+    
+    /**
+     * Acquire the mutex - blocks until it's available or the given time expires. Each call to acquire that returns true must be balanced by a call
+     * to {@link #release()}
+     *
+     * @param time time to wait
+     * @param unit time unit
+     * @return true if the mutex was acquired, false if not
+     * @throws Exception ZK errors, connection interruptions
+     */
+    public boolean acquire(long time, TimeUnit unit, Consumer<String> lockRequestConfirmation) throws Exception;
 
     /**
      * Acquire the mutex - blocks until it's available or the given time expires. Each call to acquire that returns true must be balanced by a call
